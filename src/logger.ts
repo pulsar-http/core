@@ -1,3 +1,17 @@
+/**
+ * Logs a message with the current date and time in 'en-GB' format.
+ * @param message - The message to be logged.
+ *
+ * Example usage:
+ * ```typescript
+ * log("Hello, world!");
+ * ```
+ *
+ * Example output if called at 12:00:00 on 1st January 2000:
+ * ```
+ * 01/01/2000, 12:00:00: Hello, world!
+ * ```
+ */
 export const log = (message: string) => {
   const datetime = new Date().toLocaleString("en-GB", {
     day: "2-digit",
@@ -9,8 +23,4 @@ export const log = (message: string) => {
   });
 
   console.log(datetime + ": " + message);
-};
-
-export const getResponseLog = (response: Response) => {
-  return response.ok ? response.status.toString() : response.status.toString();
 };
