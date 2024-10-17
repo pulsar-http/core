@@ -11,7 +11,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "bun build src --outdir ./dist --target bun --minify --root src && tsc  --emitDeclarationOnly"
+    "build": "bun build src --outdir ./dist --target bun --root src && tsc  --emitDeclarationOnly"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -21,6 +21,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@auth/core": "^0.37.0",
     "tsconfig-paths": "^4.2.0"
   },
   "repository": {

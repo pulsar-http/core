@@ -1,5 +1,5 @@
-import { error } from "./response";
-import type { Middleware } from "./types";
+import { error } from "../../response";
+import type { Middleware } from "../../types";
 
 /**
  * A map to track the rate limit information for each client IP.
