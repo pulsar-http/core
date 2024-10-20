@@ -1,5 +1,6 @@
 import { file } from "./response";
 import type { HTTPMethod, Route, RouteBuilder, RouterHandler } from "./types";
+import { ZodError, type ZodSchema, type infer as zInfer } from "zod";
 
 /**
  * Matches a request to one of the available routes.
@@ -79,15 +80,31 @@ export const matchRoute = (routes: Route[], request: Request) => {
  *
  * In this example, `response` will be a `Response` object with the body "User List".
  */
-export const processRoute = async (
-  matchedRoute: Route | undefined,
+export const processRoute = async <S extends ZodSchema>(
+  matchedRoute: Route<S> | undefined,
   request: Request,
 ) => {
   const url = new URL(request.url);
 
   if (matchedRoute?.handler) {
     const params = getParams(request, matchedRoute.path);
-    return matchedRoute.handler(request, params);
+    let body: zInfer<S> | undefined;
+
+    try {
+      body = await getBody(request, matchedRoute);
+    } catch (e) {
+      if (e instanceof Error) {
+        return new Response(e.message, { status: 500 });
+      }
+
+      if (e instanceof ZodError) {
+        return new Response(e.errors.map((error) => error.message).join("\n"), {
+          status: 400,
+        });
+      }
+    }
+
+    return matchedRoute.handler(request, params, body);
   }
 
   if (url.pathname.startsWith("/public")) {
@@ -122,10 +139,7 @@ export const processRoute = async (
  * }
  * ```
  */
-export const getParams = <T = { [key: string]: string }>(
-  request: Request,
-  routePath: string,
-): T => {
+export const getParams = (request: Request, routePath: string) => {
   const url = new URL(request.url);
   const routePathParts = routePath.split("/").filter((part) => part !== "");
   const requestPathParts = url.pathname
@@ -140,18 +154,75 @@ export const getParams = <T = { [key: string]: string }>(
     }
 
     return acc;
-  }, {} as T);
+  }, {});
 };
 
-const route = <PathParams = { [key: string]: string }>(
+/**
+ * Extracts the body from the request and validates it against the route's body schema
+ *
+ * @param request - The incoming HTTP request
+ * @param route - The route that contains the body schema.
+ *
+ * @returns The body of the request, or null if the route does not have a body schema.
+ *
+ * Example usage:
+ * ```typescript
+ * import { router, text, getBody } from "@pulsar-http/core";
+ * import z from 'zod';
+ *
+ * const userSchema = z.object({
+ *     name: z.string(),
+ *     email: z.string().email(),
+ * });
+ *
+ * // Schema must be passed to the route if you want to use `body` in the handler or `getBody` function.
+ * // If not passed, you can retrieve the body from the request object as usual.
+ * const myRoute = router.post('/api/users', async () => text('User Created'), userSchema);
+ *
+ * // Fake the request for the example
+ * const request = new Request('http://localhost:3000/api/users', {
+ *    method: 'POST',
+ *    headers: {
+ *      'Content-Type': 'application/json',
+ *      'Accept': 'application/json',
+ *    },
+ *    body: JSON.stringify({ name: 'John Doe', email: 'john@example.com' }),
+ * });
+ *
+ * const body = await getBody(request, myRoute);
+ *
+ * console.log(body); // Output: { name: 'John Doe', email: 'john@example.com' }
+ * ```
+ */
+export const getBody = async <S extends ZodSchema = ZodSchema>(
+  request: Request,
+  route: Route<S>,
+) => {
+  if (!route.bodyValidator) {
+    return null;
+  }
+
+  const body = await request.json();
+  const parseResult = route.bodyValidator.safeParse(body);
+
+  if (parseResult.success) {
+    return parseResult.data;
+  }
+
+  throw parseResult.error;
+};
+
+const route = <S extends ZodSchema<any>>(
   method: HTTPMethod,
   path: string,
-  handler: RouterHandler<PathParams>,
-): Route<PathParams> => {
+  handler: RouterHandler<zInfer<S>>,
+  bodyValidator?: S,
+): Route<S> => {
   return {
     method,
     path,
     handler,
+    bodyValidator,
   };
 };
 
@@ -193,8 +264,11 @@ const methods: HTTPMethod[] = [
  */
 export const router = methods.reduce(
   (acc, method) => {
-    acc[method.toLowerCase()] = (path: string, handler: RouterHandler) =>
-      route(method, path, handler);
+    acc[method.toLowerCase()] = <S extends ZodSchema<any>>(
+      path: string,
+      handler: RouterHandler<zInfer<S>>,
+      bodyValidator?: S,
+    ): Route<S> => route(method, path, handler, bodyValidator);
     return acc;
   },
   {} as Record<string, RouteBuilder>,

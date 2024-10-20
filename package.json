@@ -21,6 +21,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "zod": "^3.23.8",
     "@auth/core": "^0.37.0",
     "tsconfig-paths": "^4.2.0"
   },

@@ -34,20 +34,26 @@ const composeMiddleware = (
 
 /**
  * Extracts all routes from an array of elements that can be either routes or route namespaces.
- * @param elements - An array of routes or route namespaces.
+ * @param routes - An array of routes or route namespaces.
  * @returns An array of flattened routes.
  */
-const getRoutes = (elements: (Route | RouteNamespace)[]): Route[] => {
-  return elements.flatMap((element) => {
-    if ("routes" in element) {
-      return element.routes.map((route) => ({
-        ...route,
-        path: `${element.path}${route.path}`,
-      }));
-    }
+const getRoutes = (routes: (Route | RouteNamespace)[]): Route[] => {
+  const allRoutes: Route[] = [];
 
-    return element;
-  });
+  for (const route of routes) {
+    if ("routes" in route) {
+      const childRoutes = getRoutes(route.routes).map((childRoute) => ({
+        ...childRoute,
+        path: `${route.path}${childRoute.path}`,
+      }));
+
+      allRoutes.push(...childRoutes);
+    } else {
+      allRoutes.push(route);
+    }
+  }
+
+  return allRoutes;
 };
 
 /**

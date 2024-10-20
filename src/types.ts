@@ -1,3 +1,5 @@
+import { ZodSchema, type infer as zInfer } from "zod";
+
 /**
  * HTTP methods supported by the server.
  */
@@ -18,53 +20,42 @@ export type HTTPMethod =
  * @typeParam PathParams - An optional type for path parameters, defaults to a string key-value object.
  * @param request - The HTTP request object.
  * @param pathParams - An object representing the path parameters.
+ * @param body - The request body, validated against a Zod schema.
  * @returns A promise resolving to an HTTP response.
  */
-export type RouterHandler<PathParams = { [key: string]: string }> = (
+export type RouterHandler<Body = unknown> = (
   request: Request,
-  pathParams: PathParams,
+  pathParams: Record<string, string>,
+  body: Body,
 ) => Promise<Response>;
 
-/**
- * Defines a route for handling specific HTTP requests.
- *
- * @typeParam PathParams - An optional type for path parameters, defaults to a string key-value object.
- */
-export type Route<PathParams = { [key: string]: string }> = {
-  /**
-   * The HTTP method for the route (e.g., GET, POST).
-   */
+/** Defines the base properties for a route. */
+export type BaseRoute = {
+  /** The HTTP method for the route (e.g., GET, POST). */
   method: HTTPMethod;
 
-  /**
-   * The path for the route, e.g., "/api/users".
-   */
+  /** The path for the route, e.g., "/api/users". */
   path: string;
 
-  /**
-   * The handler function that processes the request and generates a response.
-   */
-  handler: RouterHandler<PathParams>;
-
-  /**
-   * Optional priority for route matching, with higher numbers indicating higher priority.
-   */
-  priority?: number;
+  /** The handler function that processes the request and generates a response. */
+  handler: RouterHandler;
 };
+
+/** Defines a route for handling specific HTTP requests. */
+export type Route<S extends ZodSchema<unknown> = ZodSchema<unknown>> =
+  BaseRoute & {
+    bodyValidator?: S;
+  };
 
 /**
  * A namespace for grouping multiple routes under a common path.
  */
 export type RouteNamespace = {
-  /**
-   * The base path for the namespace, which prefixes all contained routes.
-   */
+  /** The base path for the namespace, which prefixes all contained routes. */
   path: string;
 
-  /**
-   * An array of routes that fall under this namespace.
-   */
-  routes: Route[];
+  /** An array of routes that fall under this namespace. */
+  routes: (BaseRoute | RouteNamespace)[];
 };
 
 /**
@@ -127,7 +118,8 @@ export type ServerOptions = {
  * @param handler - The handler function for the route.
  * @returns A new route object.
  */
-export type RouteBuilder<PathParams = { [key: string]: string }> = (
+export type RouteBuilder = <S extends ZodSchema<unknown>>(
   path: string,
-  handler: RouterHandler<PathParams>,
-) => Route<PathParams>;
+  handler: RouterHandler<zInfer<S>>,
+  bodyValidator?: S,
+) => Route<S>;
