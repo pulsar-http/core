@@ -1,6 +1,7 @@
 import { file } from "./response";
 import type { HTTPMethod, Route, RouteBuilder, RouterHandler } from "./types";
 import { ZodError, type ZodSchema, type infer as zInfer } from "zod";
+import { OpenAPIV3 } from "openapi-types";
 
 /**
  * Matches a request to one of the available routes.
@@ -115,6 +116,26 @@ export const processRoute = async <S extends ZodSchema>(
 };
 
 /**
+ * Extracts parameters from the route path.
+ *
+ * @param routePath - The path template of the matched route.
+ *
+ * @returns An array of parameter names.
+ */
+export const getRawParams = (routePath: string) => {
+  const routePathParts = routePath.split("/").filter((part) => part !== "");
+
+  return routePathParts.reduce((acc: string[], part) => {
+    if (part.startsWith(":")) {
+      const param = part.slice(1);
+      return [...acc, param];
+    }
+
+    return acc;
+  }, []);
+};
+
+/**
  * Extracts parameters from the request URL based on the route path.
  * @typeParam T - The type of the parameters object, defaults to a string key-value object.
  * @param request - The incoming HTTP request.
@@ -217,12 +238,14 @@ const route = <S extends ZodSchema<any>>(
   path: string,
   handler: RouterHandler<zInfer<S>>,
   bodyValidator?: S,
+  openapi?: OpenAPIV3.OperationObject,
 ): Route<S> => {
   return {
     method,
     path,
     handler,
     bodyValidator,
+    openapi,
   };
 };
 
@@ -268,7 +291,8 @@ export const router = methods.reduce(
       path: string,
       handler: RouterHandler<zInfer<S>>,
       bodyValidator?: S,
-    ): Route<S> => route(method, path, handler, bodyValidator);
+      openapi?: OpenAPIV3.OperationObject,
+    ): Route<S> => route(method, path, handler, bodyValidator, openapi);
     return acc;
   },
   {} as Record<string, RouteBuilder>,

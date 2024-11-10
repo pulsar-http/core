@@ -1,4 +1,5 @@
 import { ZodSchema, type infer as zInfer } from "zod";
+import { OpenAPIV3 } from "openapi-types";
 
 /**
  * HTTP methods supported by the server.
@@ -39,6 +40,9 @@ export type BaseRoute = {
 
   /** The handler function that processes the request and generates a response. */
   handler: RouterHandler;
+
+  /** The OpenAPI documentation for the route. */
+  openapi?: OpenAPIV3.OperationObject;
 };
 
 /** Defines a route for handling specific HTTP requests. */
@@ -122,4 +126,5 @@ export type RouteBuilder = <S extends ZodSchema<unknown>>(
   path: string,
   handler: RouterHandler<zInfer<S>>,
   bodyValidator?: S,
+  openapi?: OpenAPIV3.OperationObject,
 ) => Route<S>;
