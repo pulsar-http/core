@@ -32,6 +32,7 @@ const findTagFromPath = (route: Route) => {
 
 type GenericZodDef = ZodTypeDef & {
   type?: ZodTypeAny;
+  innerType?: ZodTypeAny;
   typeName?: ZodFirstPartyTypeKind;
   shape?: () => ZodRawShape;
 };
@@ -57,6 +58,11 @@ const getBasicType = (def: GenericZodDef): OpenAPIV3.SchemaObject => {
       };
     case "ZodObject":
       return convertZodSchemaToOpenAPI(def);
+    case "ZodOptional":
+      return {
+        ...getBasicType(def?.innerType?._def),
+        nullable: true,
+      };
     default:
       return {};
   }
@@ -82,11 +88,16 @@ const convertZodSchemaToOpenAPI = (
 
       acc.properties[key] = type;
 
+      if (propertyDef.typeName !== "ZodOptional") {
+        acc.required = [...(acc.required || []), key];
+      }
+
       return acc;
     },
     {
       type: "object",
       properties: {},
+      required: [],
     },
   );
 };

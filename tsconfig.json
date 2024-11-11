@@ -1,5 +1,5 @@
 {
-  "exclude": ["tests/**/*"],
+  "exclude": ["tests/**/*", "dist/**/*"],
   "compilerOptions": {
     "outDir": "./dist",
     "declaration": true,
