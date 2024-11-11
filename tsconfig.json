@@ -1,8 +1,9 @@
 {
-  "files": ["src/index.ts"],
+  "exclude": ["tests/**/*"],
   "compilerOptions": {
     "outDir": "./dist",
     "declaration": true,
+    "types": ["bun"],
 
     // Enable latest features
     "lib": ["ESNext", "DOM"],

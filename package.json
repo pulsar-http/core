@@ -1,10 +1,20 @@
 {
   "name": "@pulsar-http/core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "keywords": [
+    "pulsar",
+    "http",
+    "toolkit",
+    "web",
+    "api",
+    "typescript",
+    "bun",
+    "fast"
+  ],
   "files": [
     "dist",
     "README.md",
@@ -14,7 +24,7 @@
     "build": "bun build src --outdir ./dist --target bun --root src && tsc  --emitDeclarationOnly"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "^1.1.13",
     "prettier": "3.3.3"
   },
   "peerDependencies": {

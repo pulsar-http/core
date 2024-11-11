@@ -147,6 +147,38 @@ const generateTags = (routes: Route[]) => {
   return Array.from(tags).map((tag) => ({ name: tag }));
 };
 
+/**
+ * Middleware to generate and serve Swagger UI documentation.
+ * @param routes - The routes to generate documentation for.
+ * @param document - The OpenAPI document to extend/override the generated documentation.
+ * @returns A middleware function that serves the Swagger UI documentation.
+ *
+ * Example usage:
+ * ```typescript
+ * import { start, router, json, swaggerMiddleware } from "@pulsar-http/core";
+ * import { z } from "zod";
+ *
+ * const userSchema = z.object({
+ *     name: z.string(),
+ *     age: z.number(),
+ * });
+ *
+ * const routes = [
+ *     router.get("/", async (req) => json({ message: "Hello, world!" })),
+ *     router.post('/users', async (req, _, body) => json({
+ *         message: "User created",
+ *         user: body,
+ *     }), userSchema),
+ * ];
+ *
+ * start({
+ *     routes,
+ *     middlewares: [swaggerMiddleware(routes)],
+ * });
+ * ```
+ *
+ * In this example, the `/swagger` route will serve the Swagger UI documentation for the provided routes.
+ */
 export const swaggerMiddleware =
   (routes: Route[], document?: OpenAPIV3.Document): Middleware =>
   async (request, next) => {
