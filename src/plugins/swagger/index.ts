@@ -59,11 +59,13 @@ const getBasicType = (def: GenericZodDef): OpenAPIV3.SchemaObject => {
     case "ZodObject":
       return convertZodSchemaToOpenAPI(def);
     case "ZodOptional":
+    case "ZodNullable":
       return {
         ...getBasicType(def?.innerType?._def),
         nullable: true,
       };
     default:
+      console.log(`Unknown type: ${def.typeName}`);
       return {};
   }
 };
