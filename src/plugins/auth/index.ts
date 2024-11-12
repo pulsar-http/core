@@ -16,8 +16,6 @@ export type {
   User,
 } from "@auth/core/types";
 
-export * from "./providers";
-
 import { error } from "../../response";
 import { type Middleware } from "../../types";
 
@@ -28,12 +26,14 @@ let globalConfig: AuthConfig;
  * @param config - The Auth.js configuration
  * @returns A middleware function that handles authentication by intercepting requests to the Auth.js callbacks
  *
+ * - Install the `@auth/core` package to use this middleware. It contains the providers.
  * - Be sure to set `AUTH_SECRET` in your environment variables.
  * - The `AUTH_BASE_PATH` environment variable can be used to set the base path for the Auth.js routes. The default is `/api/auth`.
  *
  * Example usage:
  * ```typescript
- * import { start, router, authMiddleware, githubAuthProvider, text } from "@pulsar-http/core";
+ * import { start, router, authMiddleware, text } from "@pulsar-http/core";
+ * import githubAuthProvider from '@auth/core/providers/github';
  *
  * const routes = [
  *     router.get("/", async () => text("Hello world")),
@@ -92,7 +92,8 @@ export const authMiddleware = (config: AuthConfig): Middleware => {
  *
  * Example usage:
  * ```typescript
- * import {start, router, authMiddleware, githubAuthProvider, text, getSession} from "@pulsar-http/core";
+ * import {start, router, authMiddleware, text, getSession} from "@pulsar-http/core";
+ * import githubAuthProvider from '@auth/core/providers/github';
  *
  * const routes = [
  *     router.get("/", async ({ request }) => {
