@@ -35,7 +35,7 @@ describe("response", () => {
     const response = await routeHandler(request);
     const responseAsText = await response.text();
 
-    const localFile = await Bun.file("tests/assets/index.html");
+    const localFile = Bun.file("tests/assets/index.html");
 
     expect(responseAsText).toEqual(await localFile.text());
     expect(response.headers.get("content-type")).toEqual(

@@ -24,11 +24,11 @@ export type HTTPMethod =
  * @param body - The request body, validated against a Zod schema.
  * @returns A promise resolving to an HTTP response.
  */
-export type RouterHandler<Body = unknown> = (
-  request: Request,
-  pathParams: Record<string, string>,
-  body: Body,
-) => Promise<Response>;
+export type RouterHandler<Body = any> = (args: {
+  request: Request;
+  pathParams: Record<string, string>;
+  body: Body;
+}) => Promise<Response>;
 
 /** Defines the base properties for a route. */
 export type BaseRoute = {
@@ -40,16 +40,25 @@ export type BaseRoute = {
 
   /** The handler function that processes the request and generates a response. */
   handler: RouterHandler;
+};
 
-  /** The OpenAPI documentation for the route. */
-  openapi?: OpenAPIV3.OperationObject;
+/** Defines the different options that can be set for a route. */
+export type RouteOptions<
+  BodySchema extends ZodSchema<any> = ZodSchema<any>,
+  ResponseSchema extends ZodSchema<any> = ZodSchema<any>,
+> = {
+  openApi?: OpenAPIV3.OperationObject;
+  bodySchema?: BodySchema;
+  responseSchema?: ResponseSchema;
 };
 
 /** Defines a route for handling specific HTTP requests. */
-export type Route<S extends ZodSchema<unknown> = ZodSchema<unknown>> =
-  BaseRoute & {
-    bodyValidator?: S;
-  };
+export type Route<
+  BodySchema extends ZodSchema<any> = ZodSchema<any>,
+  ResponseSchema extends ZodSchema<any> = ZodSchema<any>,
+> = BaseRoute & {
+  options?: RouteOptions<BodySchema, ResponseSchema>;
+};
 
 /**
  * A namespace for grouping multiple routes under a common path.
@@ -122,9 +131,11 @@ export type ServerOptions = {
  * @param handler - The handler function for the route.
  * @returns A new route object.
  */
-export type RouteBuilder = <S extends ZodSchema<unknown>>(
+export type RouteBuilder = <
+  BodySchema extends ZodSchema<any> = ZodSchema<any>,
+  ResponseSchema extends ZodSchema<any> = ZodSchema<any>,
+>(
   path: string,
-  handler: RouterHandler<zInfer<S>>,
-  bodyValidator?: S,
-  openapi?: OpenAPIV3.OperationObject,
-) => Route<S>;
+  handler: RouterHandler<zInfer<BodySchema>>,
+  options?: RouteOptions<BodySchema, ResponseSchema>,
+) => Route<BodySchema, ResponseSchema>;

@@ -1,7 +1,12 @@
-import { file } from "./response";
-import type { HTTPMethod, Route, RouteBuilder, RouterHandler } from "./types";
+import { error, file, json } from "./response";
+import type {
+  HTTPMethod,
+  Route,
+  RouteBuilder,
+  RouteOptions,
+  RouterHandler,
+} from "./types";
 import { ZodError, type ZodSchema, type infer as zInfer } from "zod";
-import { OpenAPIV3 } from "openapi-types";
 
 /**
  * Matches a request to one of the available routes.
@@ -88,7 +93,7 @@ export const processRoute = async <S extends ZodSchema>(
   const url = new URL(request.url);
 
   if (matchedRoute?.handler) {
-    const params = getParams(request, matchedRoute.path);
+    const pathParams = getPathParams(request, matchedRoute.path);
     let body: zInfer<S> | undefined;
 
     try {
@@ -105,7 +110,24 @@ export const processRoute = async <S extends ZodSchema>(
       }
     }
 
-    return matchedRoute.handler(request, params, body);
+    const response = await matchedRoute.handler({ request, pathParams, body });
+    const isJSON = response.headers
+      .get("content-type")
+      ?.includes("application/json");
+
+    if (matchedRoute.options?.responseSchema && isJSON) {
+      const parseResult = matchedRoute.options.responseSchema.safeParse(
+        await response.json(),
+      );
+
+      if (parseResult.success) {
+        return json(parseResult.data);
+      }
+
+      return error(500, parseResult.error.message);
+    }
+
+    return response;
   }
 
   if (url.pathname.startsWith("/public")) {
@@ -144,13 +166,13 @@ export const getRawParams = (routePath: string) => {
  *
  * Example usage:
  * ```typescript
- * import { router, text, getParams } from "@pulsar-http/core";
+ * import { router, text, getPathParams } from "@pulsar-http/core";
  *
  * const myRoute = router.get('/api/users/:id', async () => text('User List'));
  *
  * // Fake the request for the example
  * const request = new Request('http://localhost:3000/api/users/123');
- * const params = getParams(request, myRoute.path);
+ * const params = getPathParams(request, myRoute.path);
  * ```
  *
  * In this example, `params` will be:
@@ -160,7 +182,7 @@ export const getRawParams = (routePath: string) => {
  * }
  * ```
  */
-export const getParams = (request: Request, routePath: string) => {
+export const getPathParams = (request: Request, routePath: string) => {
   const url = new URL(request.url);
   const routePathParts = routePath.split("/").filter((part) => part !== "");
   const requestPathParts = url.pathname
@@ -198,7 +220,9 @@ export const getParams = (request: Request, routePath: string) => {
  *
  * // Schema must be passed to the route if you want to use `body` in the handler or `getBody` function.
  * // If not passed, you can retrieve the body from the request object as usual.
- * const myRoute = router.post('/api/users', async () => text('User Created'), userSchema);
+ * const myRoute = router.post('/api/users', async () => text('User Created'), {
+ *   bodySchema: userSchema,
+ * });
  *
  * // Fake the request for the example
  * const request = new Request('http://localhost:3000/api/users', {
@@ -219,12 +243,12 @@ export const getBody = async <S extends ZodSchema = ZodSchema>(
   request: Request,
   route: Route<S>,
 ) => {
-  if (!route.bodyValidator) {
+  if (!route.options?.bodySchema) {
     return null;
   }
 
   const body = await request.json();
-  const parseResult = route.bodyValidator.safeParse(body);
+  const parseResult = route.options.bodySchema.safeParse(body);
 
   if (parseResult.success) {
     return parseResult.data;
@@ -233,19 +257,20 @@ export const getBody = async <S extends ZodSchema = ZodSchema>(
   throw parseResult.error;
 };
 
-const route = <S extends ZodSchema<any>>(
+const route = <
+  BodySchema extends ZodSchema<any>,
+  ResponseSchema extends ZodSchema<any>,
+>(
   method: HTTPMethod,
   path: string,
-  handler: RouterHandler<zInfer<S>>,
-  bodyValidator?: S,
-  openapi?: OpenAPIV3.OperationObject,
-): Route<S> => {
+  handler: RouterHandler<zInfer<BodySchema>>,
+  options?: RouteOptions<BodySchema, ResponseSchema>,
+): Route<BodySchema, ResponseSchema> => {
   return {
     method,
     path,
     handler,
-    bodyValidator,
-    openapi,
+    options,
   };
 };
 
@@ -273,10 +298,10 @@ const methods: HTTPMethod[] = [
  * import { router, start, text } from "@pulsar-http/core";
  *
  * const routes = [
- *     router.get('/api/users', async (req) => text('User List')),
- *     router.post('/api/users', async (req) => text('User Created')),
- *     router.put('/api/users/:id', async (req, params) => text(`User ${params.id} Updated`)),
- *     router.delete('/api/users/:id', async (req, params) => text(`User ${params.id} Deleted`)),
+ *     router.get('/api/users', async () => text('User List')),
+ *     router.post('/api/users', async () => text('User Created')),
+ *     router.put('/api/users/:id', async ({ pathParams }) => text(`User ${pathParams.id} Updated`)),
+ *     router.delete('/api/users/:id', async ({ pathParams }) => text(`User ${pathParams.id} Deleted`)),
  * ];
  *
  * start({
@@ -287,12 +312,15 @@ const methods: HTTPMethod[] = [
  */
 export const router = methods.reduce(
   (acc, method) => {
-    acc[method.toLowerCase()] = <S extends ZodSchema<any>>(
+    acc[method.toLowerCase()] = <
+      BodySchema extends ZodSchema<any>,
+      ResponseSchema extends ZodSchema<any>,
+    >(
       path: string,
-      handler: RouterHandler<zInfer<S>>,
-      bodyValidator?: S,
-      openapi?: OpenAPIV3.OperationObject,
-    ): Route<S> => route(method, path, handler, bodyValidator, openapi);
+      handler: RouterHandler<zInfer<BodySchema>>,
+      options?: RouteOptions<BodySchema, ResponseSchema>,
+    ): Route<BodySchema, ResponseSchema> =>
+      route(method, path, handler, options);
     return acc;
   },
   {} as Record<string, RouteBuilder>,

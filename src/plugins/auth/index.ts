@@ -95,8 +95,8 @@ export const authMiddleware = (config: AuthConfig): Middleware => {
  * import {start, router, authMiddleware, githubAuthProvider, text, getSession} from "@pulsar-http/core";
  *
  * const routes = [
- *     router.get("/", async (req) => {
- *         const session = await getSession(req);
+ *     router.get("/", async ({ request }) => {
+ *         const session = await getSession(request);
  *         return text(`Hello, ${session?.user?.name ?? 'guest'}!`);
  *     }),
  * ];

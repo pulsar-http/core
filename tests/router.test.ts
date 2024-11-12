@@ -7,7 +7,7 @@ import {
   matchRoute,
   processRoute,
   getRawParams,
-  getParams,
+  getPathParams,
   getBody,
 } from "../src";
 
@@ -31,7 +31,9 @@ describe("router", () => {
   });
 
   it("should match a route with path parameters", async () => {
-    const routes = [router.get("/:id", async (_, params) => text(params.id))];
+    const routes = [
+      router.get("/:id", async ({ pathParams }) => text(pathParams.id)),
+    ];
 
     const request = new Request("http://localhost:3000/123");
     const route = matchRoute(routes, request);
@@ -50,8 +52,8 @@ describe("router", () => {
 
   it("should match a route with nested path parameters", async () => {
     const routes = [
-      router.get("/:id/:name", async (_, params) =>
-        text(params.id + params.name),
+      router.get("/:id/:name", async ({ pathParams }) =>
+        text(pathParams.id + pathParams.name),
       ),
     ];
 
@@ -77,15 +79,15 @@ describe("router", () => {
 
   it("should correctly retrieve path parameters", async () => {
     const routes = [
-      router.get("/:id/:name/:age", async (_, params) =>
-        text(params.id + params.name + params.age),
+      router.get("/:id/:name/:age", async ({ pathParams }) =>
+        text(pathParams.id + pathParams.name + pathParams.age),
       ),
     ];
 
     const request = new Request("http://localhost:3000/123/john/30");
     const route = matchRoute(routes, request);
 
-    const params = getParams(request, route.path);
+    const params = getPathParams(request, route.path);
 
     expect(params).toEqual({
       id: "123",
@@ -103,7 +105,9 @@ describe("router", () => {
     const myRoute = router.post(
       "/api/users",
       async () => text("User Created"),
-      userSchema,
+      {
+        bodySchema: userSchema,
+      },
     );
 
     const request = new Request("http://localhost:3000/api/users", {

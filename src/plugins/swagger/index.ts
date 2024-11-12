@@ -116,10 +116,9 @@ const generatePaths = (routes: Route[]) => {
       [path]: {
         ...(acc[path] || {}),
         [method]: {
-          summary: route.openapi?.summary ?? undefined,
-          description: route.openapi?.description ?? undefined,
-          responses: route.openapi?.responses ?? defaultResponse,
-          tags: route.openapi?.tags ?? [tag],
+          summary: route.options?.openApi?.summary ?? undefined,
+          description: route.options?.openApi?.description ?? undefined,
+          tags: route.options?.openApi?.tags ?? [tag],
           parameters: routeParameters.map((param) => ({
             name: param,
             in: "path",
@@ -128,27 +127,43 @@ const generatePaths = (routes: Route[]) => {
               type: "string",
             },
           })),
-          requestBody: route.bodyValidator?._def
+          requestBody: route.options?.bodySchema?._def
             ? {
                 content: {
                   "application/json": {
                     schema: convertZodSchemaToOpenAPI(
-                      route.bodyValidator?._def,
+                      route.options?.bodySchema?._def,
                     ),
                   },
                   "multipart/form-data": {
                     schema: convertZodSchemaToOpenAPI(
-                      route.bodyValidator?._def,
+                      route.options?.bodySchema?._def,
                     ),
                   },
                   "text/plain": {
                     schema: convertZodSchemaToOpenAPI(
-                      route.bodyValidator?._def,
+                      route.options?.bodySchema?._def,
                     ),
                   },
                 },
               }
             : undefined,
+          responses: route.options?.responseSchema
+            ? {
+                "200": {
+                  description: "Successful response",
+                  content: {
+                    "application/json": {
+                      schema: route.options?.responseSchema?._def
+                        ? convertZodSchemaToOpenAPI(
+                            route.options?.responseSchema?._def,
+                          )
+                        : {},
+                    },
+                  },
+                },
+              }
+            : defaultResponse,
         },
       },
     };
@@ -176,12 +191,17 @@ const generateTags = (routes: Route[]) => {
  *     age: z.number(),
  * });
  *
+ * const usersResponseSchema = z.object({
+ *   message: z.string(),
+ *   user: userSchema,
+ * }).strict();
+ *
  * const routes = [
- *     router.get("/", async (req) => json({ message: "Hello, world!" })),
- *     router.post('/users', async (req, _, body) => json({
+ *     router.get("/", async () => json({ message: "Hello, world!" })),
+ *     router.post('/users', async ({ body }) => json({
  *         message: "User created",
  *         user: body,
- *     }), userSchema),
+ *     }), { bodySchema: userSchema, responseSchema: usersResponseSchema }),
  * ];
  *
  * start({
