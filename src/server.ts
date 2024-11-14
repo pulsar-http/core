@@ -1,8 +1,9 @@
-import Bun from "bun";
+import Bun, { type WebSocketHandler } from "bun";
 import { log } from "./logger";
-import { error } from "./response";
+import { customResponse, error } from "./response";
 import { handleRoutes } from "./router";
 import type { Middleware, Route, RouteNamespace, ServerOptions } from "./types";
+import { getSession } from "./plugins";
 
 /**
  * Composes middlewares and the final route handler into a single function.
@@ -82,25 +83,52 @@ const getRoutes = (routes: (Route | RouteNamespace)[]): Route[] => {
  *
  * It will also apply rate limiting to restrict clients to 10 requests per minute.
  */
-export const start = ({
+export const start = <WebsocketDataType = undefined>({
   port,
   middlewares = [],
   routes = [],
-}: ServerOptions) => {
+  websocket,
+}: ServerOptions<WebsocketDataType>) => {
   const allRoutes = getRoutes(routes);
 
   Bun.serve({
     port,
     fetch: async (req, server) => {
       try {
+        const pathname = new URL(req.url).pathname;
+        const routeHandler = await handleRoutes(allRoutes);
+        const composedHandlers = composeMiddleware(middlewares, routeHandler);
+
+        if (!!websocket && pathname === "/ws") {
+          const applyMiddlewares = composeMiddleware(middlewares, async () =>
+            customResponse(null, undefined, { status: 101 }),
+          );
+
+          await applyMiddlewares(req);
+
+          const canUpgrade = websocket.options?.canUpgrade
+            ? await websocket.options?.canUpgrade(req)
+            : true;
+
+          if (!canUpgrade) {
+            return error(403);
+          }
+
+          const upgradeOptions = await websocket.options?.upgrade?.(req);
+
+          server.upgrade(req, {
+            headers: upgradeOptions?.headers,
+            data: upgradeOptions?.data,
+          });
+
+          return;
+        }
+
         const clientIp = server.requestIP(req);
 
         if (clientIp?.address) {
           req.headers.set("x-real-ip", clientIp.address);
         }
-
-        const routeHandler = await handleRoutes(allRoutes);
-        const composedHandlers = composeMiddleware(middlewares, routeHandler);
 
         let response = await composedHandlers(req);
 
@@ -113,6 +141,7 @@ export const start = ({
         return error(500);
       }
     },
+    websocket: websocket as WebSocketHandler<WebsocketDataType>,
   });
 
   log(`Server started on http://localhost:${port ?? 3000}`);

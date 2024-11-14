@@ -1,5 +1,6 @@
 import { ZodSchema, type infer as zInfer } from "zod";
 import { OpenAPIV3 } from "openapi-types";
+import { type WebSocketHandler } from "bun";
 
 /**
  * HTTP methods supported by the server.
@@ -104,7 +105,7 @@ export type Middleware = (
 /**
  * Options for configuring the server.
  */
-export type ServerOptions = {
+export type ServerOptions<WebsocketDataType> = {
   /**
    * The port number on which the server should listen.
    * @default 3000
@@ -122,6 +123,23 @@ export type ServerOptions = {
    * Routes define the HTTP endpoints served by the server.
    */
   routes: (Route | RouteNamespace)[];
+
+  /**
+   * Websocket default Bun options with additional upgrade options allowing to pass headers and data.
+   * When upgrade is provided, the websocket handler will be called with the provided headers and data.
+   */
+  websocket?: WebSocketHandler<WebsocketDataType> & {
+    options?: {
+      /** Function that returns whether the request can be upgraded to a websocket connection. (i.e.: must be logged in) */
+      canUpgrade?: (req: Request) => Promise<boolean>;
+
+      /** Function that returns the headers and data to be used in the websocket connection. */
+      upgrade?: (req: Request) => Promise<{
+        headers?: HeadersInit;
+        data?: WebsocketDataType;
+      }>;
+    };
+  };
 };
 
 /**
